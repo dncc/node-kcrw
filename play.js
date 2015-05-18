@@ -12,9 +12,8 @@ var Promise = require('bluebird');
 // package.json info
 var packageInfo = require('./package.json');
 
-var STREAM_URL = 'http://kcrw.ic.llnwd.net/stream/kcrw_live';
-var CURRENT_TRACK_URL = 'http://tracklist-api.kcrw.com/Simulcast';
-var NOW_PLAYING_URL = 'http://www.kcrw.com/now_playing.json';
+var STREAM_URL = 'http://kcrw.ic.llnwd.net/stream/kcrw_music';
+var NOW_PLAYING_URL = 'http://www.kcrw.com/now_playing.json?channel=kcrwmusic';
 
 var USER_AGENT = util.format('node-kcrw (%s)', packageInfo.version);
 console.log(USER_AGENT)
@@ -68,7 +67,7 @@ function getAnd(uri) {
 				resolve(data);
 			});
 		})
-	
+
 		req.on('error', function(err) {
 			reject(err);
 		});
@@ -78,11 +77,11 @@ function getAnd(uri) {
 // wrap lines, breaking on spaces; columns arg is optional number
 function notTooWide(str, columns) {
 	if (isNaN(columns)) columns = columnWidth();
-	
+
 	var indentStr = '  ';
 	var lines = Array(indentStr);
 	var words = str.split(' ');
-	
+
 	words.forEach(function(word, i) {
 		var lastLine = lines[lines.length-1]; // this is a copy, not reference
 		if ((lastLine.length + word.length) < columns) {
@@ -96,58 +95,57 @@ function notTooWide(str, columns) {
 
 // calls checkLatest recursively internally
 function printLatestTrack() {
-	var currentTrackBody = null;
-	var currentHost = null;
+	var currentTitle = null;
+	var songListURL = null;
 
 	checkLatest();
 
 	function checkLatest() {
 		Promise.all([
-			getAnd(NOW_PLAYING_URL),
-			getAnd(CURRENT_TRACK_URL)
-		]).spread( function(nowPlayingData, currentTrackData) {
+			getAnd(NOW_PLAYING_URL)
+		]).spread( function(nowPlayingData) {
 			var nowPlaying = JSON.parse(nowPlayingData);
-			
-			// check for host change
-			var host1 = nowPlaying['hosts'][0]['name'];
-			if (host1 != currentHost) {
-				currentHost = host1;
-				
-				var stationBadge = 'KCRW: Member supported independent public radio - http://kcrw.com/join';
-				var sep = Array(columnWidth()+1).join('=');
-				
-				console.log( util.format('\n%s\n%s\n\nCurrent Host: %s (%s)\n%s\n\n', sep, stationBadge, host1, nowPlaying.show_title, sep) );
-			}
-			
-			// if no songlist key in now playing data, 
+            songListURL = nowPlaying['songlist'];
+
+		    Promise.all([
+                getAnd(songListURL)
+            ]).spread( function(songlistData) {
+                var songList = JSON.parse(songlistData);
+			    // check for host change
+			    var title = songList[0]['title'];
+			    var artist = songList[0]['artist'];
+
+			    if (title != currentTitle) {
+			        currentTitle = title;
+
+			        var stationBadge = 'KCRW: Member supported independent public radio - http://kcrw.com/join';
+			        var sep = Array(columnWidth()+1).join('=');
+
+                    var trackList = [];
+
+                    for (var i = songList.length-1; i >= 0; i--) {
+                        trackList.push(util.format('%s. %s - %s', i+1, songList[i]['title'], songList[i]['artist']));
+                    }
+                    console.log(trackList.join("\n"));
+                    console.log( util.format(
+                        '%s\n%s\n\nCurrent Track: %s (%s)\n%s\n', sep, stationBadge, title, artist, sep
+                    ));
+			    }
+			    // track is unchanged, check again soon
+                else {
+                    setTimeout(checkLatest, 10*1000);
+                    return;
+                }
+            });
+
+			// if no songlist key in now playing data,
 			// then track listing is wrong (could eventually use the segments part)
 			// so we skip the rest, check again a bit later
 			if (nowPlaying.songlist === null) {
-				currentTrackBody = null;
 				setTimeout(checkLatest, 30*1000);
 				return;
-			} 
-			
-			// track is unchanged, check again soon
-			if (currentTrackBody == currentTrackData) {
-				setTimeout(checkLatest, 4*1000);
-				return;
 			}
-			
-			// print out current track info
-			currentTrackBody = currentTrackData;
-			var song = JSON.parse(currentTrackData);
-			
-			var lines = ['','',''];
-			lines[0] = util.format('“%s” by %s', song.title, song.artist);
 
-			if (song.album) lines[1] += song.album;
-			if (song.year > 0) lines[1] += util.format(' (%s)', song.year);
-
-			if (song.comments) lines[2] = util.format("More info:\n%s", notTooWide(song.comments));
-			
-			lines.push('\n');
-			console.log(lines.join('\n'));
 			setTimeout(checkLatest, 4000);
 		});
 	}
