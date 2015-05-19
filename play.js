@@ -5,9 +5,79 @@ var url = require('url');
 var util = require('util');
 
 // 3rd party
+var blessed = require('blessed');
 var lame = require('lame');
 var Speaker = require('speaker');
 var Promise = require('bluebird');
+
+// Create a screen object.
+var screen = blessed.screen({
+  autoPadding: true,
+  smartCSR: true
+});
+
+screen.title = 'KCRW';
+
+// Create a box perfectly centered horizontally and vertically.
+var box = blessed.box({
+  top: 'center',
+  left: 'left',
+  width: '100%',
+  height: '100%',
+  content: '{center}{yellow-fg} KCRW PLAYER {/yellow-fg}{/center}',
+  tags: true,
+  border: {
+    type: 'line'
+  },
+  style: {
+    fg: 'white',
+    bg: 'magenta',
+    border: {
+      fg: '#f0f0f0'
+    },
+  },
+  scrollable: true
+});
+
+// Quit on Escape, q, or Control-C.
+screen.key(['escape', 'q', 'C-c'], function(ch, key) {
+  return process.exit(0);
+});
+
+// Append our box to the screen.
+screen.append(box);
+
+// http://nodejs.org/api.html#_child_processes
+var sys = require('sys')
+var exec = require('child_process').exec;
+var child;
+
+// --- volume controls -/+ ---
+box.key('-', function(ch, key) {
+    child = exec("amixer -D pulse sset Master 10%-", function (error, stdout, stderr) {
+        if (error !== null) {
+            console.log('exec error: ' + error);
+        }
+    });
+    screen.render();
+});
+box.key('+', function(ch, key) {
+    child = exec("amixer -D pulse sset Master 10%+", function (error, stdout, stderr) {
+        if (error !== null) {
+            console.log('exec error: ' + error);
+        }
+    });
+    screen.render();
+});
+// --- volume controls end ---
+
+// Focus our element.
+box.focus();
+
+// ---- render screen ----
+screen.render();
+
+// ---- streaming ----
 
 // package.json info
 var packageInfo = require('./package.json');
@@ -74,24 +144,6 @@ function getAnd(uri) {
 	});
 }
 
-// wrap lines, breaking on spaces; columns arg is optional number
-function notTooWide(str, columns) {
-	if (isNaN(columns)) columns = columnWidth();
-
-	var indentStr = '  ';
-	var lines = Array(indentStr);
-	var words = str.split(' ');
-
-	words.forEach(function(word, i) {
-		var lastLine = lines[lines.length-1]; // this is a copy, not reference
-		if ((lastLine.length + word.length) < columns) {
-			lines[lines.length-1] =	 util.format('%s%s ', lastLine, word);
-		} else {
-			lines.push( util.format('%s%s ', indentStr, word) );
-		}
-	});
-	return lines.join('\n');
-}
 
 // calls checkLatest recursively internally
 function printLatestTrack() {
@@ -118,18 +170,21 @@ function printLatestTrack() {
 			    if (title != currentTitle) {
 			        currentTitle = title;
 
-			        var stationBadge = 'KCRW: Member supported independent public radio - http://kcrw.com/join';
 			        var sep = Array(columnWidth()+1).join('=');
 
-                    var trackList = [];
 
                     for (var i = songList.length-1; i >= 0; i--) {
-                        trackList.push(util.format('%s. %s - %s', i+1, songList[i]['title'], songList[i]['artist']));
+                        box.insertLine(1, util.format('%s. %s - %s', i+1, songList[i]['title'], songList[i]['artist']));
                     }
-                    console.log(trackList.join("\n"));
-                    console.log( util.format(
-                        '%s\n%s\n\nCurrent Track: %s (%s)\n%s\n', sep, stationBadge, title, artist, sep
-                    ));
+
+                    box.insertLine(1, "---");
+                    box.insertLine(1, util.format("Current Track: %s (%s)", title, artist) );
+                    box.insertLine(1, "");
+                    box.insertLine(1, 'KCRW: Member supported independent public radio - http://kcrw.com/join' );
+                    box.insertLine(1, "---");
+
+                    // ---- render screen ----
+                    screen.render();
 			    }
 			    // track is unchanged, check again soon
                 else {
@@ -146,7 +201,6 @@ function printLatestTrack() {
 				return;
 			}
 
-			setTimeout(checkLatest, 4000);
 		});
 	}
 }
