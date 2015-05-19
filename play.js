@@ -6,42 +6,55 @@ var util = require('util');
 
 // 3rd party
 var blessed = require('blessed');
-var lame = require('lame');
-var Speaker = require('speaker');
-var Promise = require('bluebird');
+
 
 // Create a screen object.
 var screen = blessed.screen({
-  autoPadding: true,
-  smartCSR: true
+    autoPadding: true,
+    smartCSR: true
 });
 
 screen.title = 'KCRW';
 
-// Create a box perfectly centered horizontally and vertically.
+// Create player box.
 var box = blessed.box({
-  top: 'center',
-  left: 'left',
-  width: '100%',
-  height: '100%',
-  content: '{center}{yellow-fg} KCRW PLAYER {/yellow-fg}{/center}',
-  tags: true,
-  border: {
-    type: 'line'
-  },
-  style: {
-    fg: 'white',
-    bg: 'magenta',
+    top: 'center',
+    left: 'left',
+    width: '100%',
+    height: '100%',
+    content: '{center}{magenta-bg}{yellow-fg} KCRW PLAYER {/yellow-fg}{/magenta-bg}{/center}',
+    tags: true,
     border: {
-      fg: '#f0f0f0'
+        type: 'line'
     },
-  },
-  scrollable: true
+    style: {
+        fg: 'white',
+        border: {
+            fg: '#a0a0a0'
+        },
+    }
+});
+
+// track list
+var list = blessed.list({
+    parent: box,
+    width: '95%',
+    height: '88%',
+    top: 'center',
+    left: 2,
+    align: 'left',
+    selectedBg: 'black',
+    // Allow mouse support
+    mouse: true,
+    // Allow key support (arrow keys + enter)
+    keys: true,
+    // Use vi built-in keys
+    vi: true
 });
 
 // Quit on Escape, q, or Control-C.
 screen.key(['escape', 'q', 'C-c'], function(ch, key) {
-  return process.exit(0);
+    return process.exit(0);
 });
 
 // Append our box to the screen.
@@ -59,7 +72,6 @@ box.key('-', function(ch, key) {
             console.log('exec error: ' + error);
         }
     });
-    screen.render();
 });
 box.key('+', function(ch, key) {
     child = exec("amixer -D pulse sset Master 10%+", function (error, stdout, stderr) {
@@ -67,19 +79,19 @@ box.key('+', function(ch, key) {
             console.log('exec error: ' + error);
         }
     });
-    screen.render();
 });
 // --- volume controls end ---
 
-// Focus our element.
-box.focus();
-
-// ---- render screen ----
+list.focus();
 screen.render();
 
 // ---- streaming ----
 
-// package.json info
+// 3rd party
+var lame = require('lame');
+var Speaker = require('speaker');
+var Promise = require('bluebird');
+
 var packageInfo = require('./package.json');
 
 var STREAM_URL = 'http://kcrw.ic.llnwd.net/stream/kcrw_music';
@@ -96,8 +108,6 @@ get(STREAM_URL, function(res) {
 	printLatestTrack();
 });
 
-
-/* Hoisted functions only */
 
 // get the width of terminal, or default
 function columnWidth() {
@@ -144,63 +154,46 @@ function getAnd(uri) {
 	});
 }
 
-
 // calls checkLatest recursively internally
 function printLatestTrack() {
-	var currentTitle = null;
-	var songListURL = null;
+    var currentTitle = null;
+    var songListURL = null;
+    var listItems = null;
 
-	checkLatest();
+    checkLatest();
 
-	function checkLatest() {
-		Promise.all([
-			getAnd(NOW_PLAYING_URL)
-		]).spread( function(nowPlayingData) {
-			var nowPlaying = JSON.parse(nowPlayingData);
+    function checkLatest() {
+    	Promise.all([
+    		getAnd(NOW_PLAYING_URL)
+    	]).spread( function(nowPlayingData) {
+    		var nowPlaying = JSON.parse(nowPlayingData);
             songListURL = nowPlaying['songlist'];
 
-		    Promise.all([
+    	    Promise.all([
                 getAnd(songListURL)
             ]).spread( function(songlistData) {
                 var songList = JSON.parse(songlistData);
-			    // check for host change
-			    var title = songList[0]['title'];
-			    var artist = songList[0]['artist'];
 
-			    if (title != currentTitle) {
-			        currentTitle = title;
+                // check for track change
+                if (songList[0]['title'] != currentTitle ) {
+    		        currentTitle = songList[0]['title'];
 
-			        var sep = Array(columnWidth()+1).join('=');
-
-
-                    for (var i = songList.length-1; i >= 0; i--) {
-                        box.insertLine(1, util.format('%s. %s - %s', i+1, songList[i]['title'], songList[i]['artist']));
+                    listItems = [];
+                    for (var i = 0; i < songList.length; i++) {
+                        listItems[i] = util.format('%s. %s - %s', i+1, songList[i]['title'], songList[i]['artist']);
                     }
+                    list.setItems(listItems);
 
-                    box.insertLine(1, "---");
-                    box.insertLine(1, util.format("Current Track: %s (%s)", title, artist) );
-                    box.insertLine(1, "");
-                    box.insertLine(1, 'KCRW: Member supported independent public radio - http://kcrw.com/join' );
-                    box.insertLine(1, "---");
-
-                    // ---- render screen ----
+                    // render screen
                     screen.render();
-			    }
-			    // track is unchanged, check again soon
-                else {
-                    setTimeout(checkLatest, 10*1000);
+                    setTimeout(checkLatest, 30*1000);
+                    return;
+    		    } else {
+    		        // track is unchanged, check again soon
+                    setTimeout(checkLatest, 5000);
                     return;
                 }
             });
-
-			// if no songlist key in now playing data,
-			// then track listing is wrong (could eventually use the segments part)
-			// so we skip the rest, check again a bit later
-			if (nowPlaying.songlist === null) {
-				setTimeout(checkLatest, 30*1000);
-				return;
-			}
-
-		});
-	}
+    	});
+    }
 }
