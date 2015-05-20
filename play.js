@@ -35,12 +35,23 @@ var box = blessed.box({
     }
 });
 
+var trackInfo = blessed.box({
+    top: "70%",
+    left: 2,
+    width: '95%',
+    height: '30%',
+    tags: true,
+    style: {
+        fg: 'white',
+    }
+});
+
 // track list
 var list = blessed.list({
-    parent: box,
+    parent: screen,
     width: '95%',
-    height: '88%',
-    top: 'center',
+    height: '60%',
+    top: 3,
     left: 2,
     align: 'left',
     selectedBg: 'black',
@@ -52,6 +63,7 @@ var list = blessed.list({
     vi: true
 });
 
+
 // Quit on Escape, q, or Control-C.
 screen.key(['escape', 'q', 'C-c'], function(ch, key) {
     return process.exit(0);
@@ -59,6 +71,8 @@ screen.key(['escape', 'q', 'C-c'], function(ch, key) {
 
 // Append our box to the screen.
 screen.append(box);
+screen.append(list);
+screen.append(trackInfo);
 
 // http://nodejs.org/api.html#_child_processes
 var sys = require('sys')
@@ -154,11 +168,13 @@ function getAnd(uri) {
 	});
 }
 
+// track list
+var trackList = null;
+
 // calls checkLatest recursively internally
 function printLatestTrack() {
     var currentTitle = null;
     var songListURL = null;
-    var listItems = null;
 
     checkLatest();
 
@@ -172,18 +188,18 @@ function printLatestTrack() {
     	    Promise.all([
                 getAnd(songListURL)
             ]).spread( function(songlistData) {
-                var songList = JSON.parse(songlistData);
+                trackList = JSON.parse(songlistData);
 
                 // check for track change
-                if (songList[0]['title'] != currentTitle ) {
-    		        currentTitle = songList[0]['title'];
-
+                if (trackList[0]['title'] != currentTitle ) {
+                    currentTitle = trackList[0]['title'];
                     listItems = [];
-                    for (var i = 0; i < songList.length; i++) {
-                        listItems[i] = util.format('%s. %s - %s', i+1, songList[i]['title'], songList[i]['artist']);
+                    for (var i = 0; i < trackList.length; i++) {
+                        listItems[i] = util.format('%s. %s - %s', i+1, trackList[i]['title'], trackList[i]['artist']);
                     }
                     list.setItems(listItems);
 
+                    trackInfo.setContent(trackContent(trackList[0]));
                     // render screen
                     screen.render();
                     setTimeout(checkLatest, 30*1000);
@@ -197,3 +213,21 @@ function printLatestTrack() {
     	});
     }
 }
+
+list.on('scroll', function(){
+    trackInfo.setContent(trackContent(trackList[list.selected]));
+    screen.render();
+    return;
+});
+
+var trackContent = function(listItem) {
+    s = '------------------------------------\n';
+    if (listItem['title'] != '') {
+        s = s + 'Title: '  + listItem['title']  + "\n" +
+                'Artist: ' + listItem['artist'] + "\n" +
+                'Album: '  + listItem['album']  + "\n" +
+                'Label: '  + listItem['label']  + "\n" +
+                'Year: '   + listItem['year']   + ".\n"
+    }
+    return s;
+};
