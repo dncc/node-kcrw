@@ -1,14 +1,20 @@
 # node-kcrw
 
-Play the KCRW live stream in your Terminal. Because why not.  
-Made mostly possibe by [node-lame](https://github.com/TooTallNate/node-speaker) and [node-speaker](https://github.com/TooTallNate/node-speaker).
+Forked from [node-kcrw]('git://github.com/hulbert/node-kcrw.git').
+
+Play the KCRW live stream in your Terminal.
+
+Based on:
+   - [node-lame](https://github.com/TooTallNate/node-speaker)
+   - [node-speaker](https://github.com/TooTallNate/node-speaker)
+   - [blessed](https://github.com/chjj/blessed.git)
 
 ## Install
 
-With [npm](https://npmjs.org) do (you may need sudo):
+With [npm](https://npmjs.org) do from the project dir (you may need sudo):
 
 ```
-npm install -g kcrw
+npm install -g .
 ```
 
 ## Usage
@@ -21,7 +27,7 @@ $ kcrw
 
 ## Notes
 
-Haven't tested on Windows. Would like to add KCRW's 24/7 streams (both news & music to be played via command line args).
+Haven't tested on Windows and MacOS.
 
 ## License
 

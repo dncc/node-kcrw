@@ -3,10 +3,9 @@
 var http = require('http');
 var url = require('url');
 var util = require('util');
-
+var sprintf=require("sprintf-js").sprintf;
 // 3rd party
 var blessed = require('blessed');
-
 
 // Create a screen object.
 var screen = blessed.screen({
@@ -195,7 +194,23 @@ function printLatestTrack() {
                     currentTitle = trackList[0]['title'];
                     listItems = [];
                     for (var i = 0; i < trackList.length; i++) {
-                        listItems[i] = util.format('%s. %s - %s', i+1, trackList[i]['title'], trackList[i]['artist']);
+                        if (trackList[i]['title'] != '') {
+                            date = new Date(Date.parse(trackList[i]['datetime']));
+                            time = date.toTimeString().split(' ')[0];
+                            listItems[i] = util.format(
+                                '%s.[%s] %s - %s',
+                                sprintf("%3d", i+1),
+                                time,
+                                trackList[i]['title'],
+                                trackList[i]['artist']
+                            );
+                        } else {
+                            listItems[i] = util.format(
+                                '%s.[%s] %s',
+                                sprintf("%3d", i+1),
+                                time,
+                                trackList[i]['artist']);
+                        }
                     }
                     list.setItems(listItems);
 
@@ -220,14 +235,49 @@ list.on('scroll', function(){
     return;
 });
 
+var sep = '------------------------------------\n';
+
 var trackContent = function(listItem) {
-    s = '------------------------------------\n';
     if (listItem['title'] != '') {
-        s = s + 'Title: '  + listItem['title']  + "\n" +
-                'Artist: ' + listItem['artist'] + "\n" +
-                'Album: '  + listItem['album']  + "\n" +
-                'Label: '  + listItem['label']  + "\n" +
-                'Year: '   + listItem['year']   + ".\n"
+        var s = sep + sprintf('%8s','Title: ' ) + listItem['title']  + "\n" +
+                      sprintf('%8s','Artist: ') + listItem['artist'] + "\n" +
+                      sprintf('%8s','Album: ' ) + listItem['album']  + "\n" +
+                      sprintf('%8s','Label: ' ) + listItem['label']  + "\n" +
+                      sprintf('%8s','Year: '  ) + listItem['year']   + ".\n"
     }
     return s;
 };
+
+var DWL_FILE = "/home/dnc/downloads/music_to_download.txt";
+list.on('keypress', function(ch, key){
+    if (key.name === 'w') {
+
+        var track = trackList[list.selected];
+        var title = track['title'].replace(/'|"/g, "");
+
+        exec("grep '"+title+"' " + DWL_FILE,
+            function (err, stdout, stderr) {
+                // track doesn't exist, write it to the file
+                if (stdout === '') {
+                    var line = title + ' - ' + track['artist'].replace(/'|"/g, "");
+                    exec("echo '"+ line +"' >> " + DWL_FILE,
+                        function (error, stdout, stderr) {
+                            if (error !== null) {
+                                trackInfo.setContent('exec error: ' + error);
+                            } else {
+                                trackInfo.setContent(sep + "'" + title + "' saved!\n");
+                            }
+                            screen.render();
+                        });
+                } else if (err === null) {
+                    trackInfo.setContent(sep + "'" + title + "' already exists!\n");
+                    screen.render();
+                } else {
+                    trackInfo.setContent(sep + stderr);
+                    screen.render();
+                }
+            });
+
+        return;
+    }
+});

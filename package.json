@@ -7,23 +7,25 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/hulbert/node-kcrw.git"
+    "url": "git://github.com/dncc/node-kcrw.git"
   },
   "keywords": [
     "radio",
     "music",
     "kcrw"
   ],
-  "author": "Scott Hulbert <scott@scotthulbert.com> (http://scotthulbert.com)",
+  "author": "Dragan Cvetinovic <dcvetinovic@gmail.com> (http://dncc.github.io/)",
+  "contributors": [{ "name": "Scott Hulbert", "email": "scott@scotthulbert.com" }],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/hulbert/node-kcrw/issues"
+    "url": "https://github.com/dncc/node-kcrw/issues"
   },
-  "homepage": "https://github.com/hulbert/node-kcrw",
+  "homepage": "https://github.com/dncc/node-kcrw",
   "dependencies": {
     "blessed": "0.1.56",
     "bluebird": "^2.3.2",
     "lame": "^1.1.1",
-    "speaker": "^0.2.1"
+    "speaker": "^0.2.1",
+    "sprintf-js": "1.0.2"
   }
 }
