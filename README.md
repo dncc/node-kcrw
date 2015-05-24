@@ -24,7 +24,13 @@ Play KCRW:
 ```
 $ kcrw
 ```
-
+Controls:
+```
++/-             volume increase/decrease
+v               stop/play
+j/k             scroll track list
+q/Ctrl-c/ESC    quit
+```
 ## Notes
 
 Haven't tested on Windows and MacOS.
