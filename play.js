@@ -93,13 +93,22 @@ box.key('+', function(ch, key) {
         }
     });
 });
-// --- volume controls end ---
+
+// --- stop/play controls v ---
+box.key('v', function(ch, key) {
+    if ($stream !== null) {
+        stopPlayer();
+    } else {
+        startPlayer();
+    }
+});
 
 list.focus();
 screen.render();
 
 // ---- streaming ----
 
+var $stream = null;
 // 3rd party
 var lame = require('lame');
 var Speaker = require('speaker');
@@ -113,14 +122,22 @@ var NOW_PLAYING_URL = 'http://www.kcrw.com/now_playing.json?channel=kcrwmusic';
 var USER_AGENT = util.format('node-kcrw (%s)', packageInfo.version);
 console.log(USER_AGENT)
 
+function startPlayer(){
+    if ($stream === null) {
+        get(STREAM_URL, function(res) {
+            $stream = res.pipe(new lame.Decoder())
+                         .pipe(new Speaker());
+            printLatestTrack();
+        });
+    }
+}
 
-get(STREAM_URL, function(res) {
-	res.pipe(new lame.Decoder())
-	   .pipe(new Speaker());
-
-	printLatestTrack();
-});
-
+function stopPlayer(){
+    if ($stream !== null) {
+        $stream.end();
+        $stream = null;
+    }
+}
 
 // get the width of terminal, or default
 function columnWidth() {
@@ -239,11 +256,11 @@ var sep = '------------------------------------\n';
 
 var trackContent = function(listItem) {
     if (listItem['title'] != '') {
-        var s = sep + sprintf('%8s','Title: ' ) + listItem['title']  + "\n" +
-                      sprintf('%8s','Artist: ') + listItem['artist'] + "\n" +
-                      sprintf('%8s','Album: ' ) + listItem['album']  + "\n" +
-                      sprintf('%8s','Label: ' ) + listItem['label']  + "\n" +
-                      sprintf('%8s','Year: '  ) + listItem['year']   + ".\n"
+        var s = sep + sprintf('%8s', 'Title: ' ) + listItem['title']  + "\n" +
+                      sprintf('%8s', 'Artist: ') + listItem['artist'] + "\n" +
+                      sprintf('%8s', 'Album: ' ) + listItem['album']  + "\n" +
+                      sprintf('%8s', 'Label: ' ) + listItem['label']  + "\n" +
+                      sprintf('%8s', 'Year: '  ) + listItem['year']   + ".\n"
     }
     return s;
 };
@@ -281,3 +298,5 @@ list.on('keypress', function(ch, key){
         return;
     }
 });
+
+startPlayer();
